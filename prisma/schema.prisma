@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ChatFlow {
+  id                String        @id @default(uuid())
+  name              String        @unique
+  isActive          Boolean       @default(true)
+  questions         Question[]    @relation("ChatFlowQuestions")
+  completionMessage String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  OngoingChat       OngoingChat[]
+}
+
+model Question {
+  id         String    @id @default(uuid())
+  chatFlow   ChatFlow  @relation("ChatFlowQuestions", fields: [chatFlowId], references: [id])
+  chatFlowId String
+  question   String
+  fieldName  String
+  fieldType  FieldType
+
+  createdAt    DateTime       @default(now())
+  UserResponse UserResponse[]
+}
+
+model MessageTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model OngoingChat {
+  id                String    @id @default(uuid())
+  phoneNumber       String    @unique
+  chatFlowId        String?
+  currentQuestionId String?
+  chatFlow          ChatFlow? @relation(fields: [chatFlowId], references: [id])
+  createdAt         DateTime  @default(now())
+}
+
+model UserResponse {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  questionId  String
+  response    String
+  createdAt   DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id])
+}
+
+model MessageLog {
+  id          String           @id @default(uuid())
+  phoneNumber String
+  message     String
+  direction   MessageDirection
+  status      MessageStatus    @default(PENDING)
+  createdAt   DateTime         @default(now())
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  CHOICE
+  EMAIL
+  PHONE
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
