@@ -11,7 +11,7 @@ model ChatFlow {
   id                String        @id @default(uuid())
   name              String        @unique
   isActive          Boolean       @default(true)
-  questions         Question[]    @relation("ChatFlowQuestions")
+  questions         Question[]?    @relation("ChatFlowQuestions")
   completionMessage String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

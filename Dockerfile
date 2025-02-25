@@ -1,18 +1,30 @@
-# Use the official NestJS Node image
-FROM node:16
+# Use Node.js 18 Alpine base image
+FROM node:18-alpine
 
-# Create and set the working directory
-WORKDIR /app
+# Set the working directory
+WORKDIR /usr/src/app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install
+# Install required dependencies for Prisma
+RUN apk add --no-cache openssl libc6-compat
 
-# Copy the rest of the app
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy package files
+COPY package*.json pnpm-lock.yaml* ./
+
+# Install dependencies
+RUN pnpm install
+
+# Copy source files
+COPY prisma ./prisma
 COPY . .
 
-# Expose the app port
-EXPOSE 3000
+# Generate Prisma Client
+RUN npx prisma generate
 
-# Default command to start the app
-CMD ["npm", "run", "start:dev"]
+# Build the application
+RUN pnpm run build
+
+# Start the application
+CMD ["node", "dist/main.js"]

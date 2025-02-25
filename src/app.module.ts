@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ChatFlowModule } from './chat-flow/chat-flow.module';
 import { MessageTemplateModule } from './message-template/message-template.module';
 import { WhatsappMessageModule } from './whatsapp-message/whatsapp-message.module';
+import { VoiceToAppointmentModule } from './voice-to-appointment/voice-to-appointment.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { WhatsappMessageModule } from './whatsapp-message/whatsapp-message.modul
     ChatFlowModule,
     MessageTemplateModule,
     WhatsappMessageModule,
+    VoiceToAppointmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
