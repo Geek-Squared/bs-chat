@@ -1,5 +1,11 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { WhatsAppMessageService } from './whatsapp-message.service';
+import { 
+  ScheduleMessageDto, 
+  BulkScheduleMessageDto, 
+  BulkSendMessageDto,
+  DirectBulkSendMessageDto
+} from './dto/schedule-message.dto';
 
 @Controller('whatsapp')
 export class WhatsAppMessageController {
@@ -36,5 +42,18 @@ export class WhatsAppMessageController {
       this.logger.error(error.stack);
       throw error;
     }
+  }
+
+  @Post('/schedule')
+  async scheduleMessage(@Body() dto: ScheduleMessageDto) {
+    return this.whatsappMessageService.scheduleMessage(dto);
+  }
+   @Post('/send-bulk')
+  async sendBulkMessages(@Body() dto: BulkSendMessageDto) {
+    return this.whatsappMessageService.sendBulkMessages(dto);
+  }
+  @Post('/schedule-bulk')
+  async scheduleBulkMessages(@Body() dto: BulkScheduleMessageDto) {
+    return this.whatsappMessageService.scheduleBulkMessages(dto);
   }
 }

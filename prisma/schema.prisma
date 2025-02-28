@@ -11,7 +11,7 @@ model ChatFlow {
   id                String        @id @default(uuid())
   name              String        @unique
   isActive          Boolean       @default(true)
-  questions         Question[]?    @relation("ChatFlowQuestions")
+  questions         Question[]    @relation("ChatFlowQuestions")
   completionMessage String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -31,10 +31,11 @@ model Question {
 }
 
 model MessageTemplate {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  content   String
-  createdAt DateTime @default(now())
+  id                String             @id @default(uuid())
+  name              String             @unique
+  content           String
+  createdAt         DateTime           @default(now())
+  scheduledMessages ScheduledMessage[]
 }
 
 model OngoingChat {
@@ -58,11 +59,36 @@ model UserResponse {
 
 model MessageLog {
   id          String           @id @default(uuid())
-  phoneNumber String
-  message     String
+  messageId   String?          // Twilio SID
+  to          String           @default("unknown")
+  from        String           @default("unknown")
+  body        String           @default("")
+  phoneNumber String?          // Legacy field - will be removed in future migration
+  message     String?          // Legacy field - will be removed in future migration
   direction   MessageDirection
   status      MessageStatus    @default(PENDING)
+  type        String           @default("WHATSAPP") // "WHATSAPP" or "SMS"
+  contactId   String?          // Optional link to contact
   createdAt   DateTime         @default(now())
+}
+
+model ScheduledMessage {
+  id              String           @id @default(uuid())
+  to              String
+  from            String?
+  phoneNumber     String?          // Legacy field - will be removed in future migration
+  templateId      String?
+  body            String?          // Direct message content (when not using template)
+  messageType     String           @default("WHATSAPP") // "WHATSAPP" or "SMS"
+  variables       Json             @default("{}")
+  scheduledTime   DateTime
+  status          ScheduledStatus  @default(PENDING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sentAt          DateTime?
+  contactId       String?          // Optional link to contact
+  
+  messageTemplate MessageTemplate?  @relation(fields: [templateId], references: [id])
 }
 
 enum FieldType {
@@ -82,4 +108,32 @@ enum MessageStatus {
 enum MessageDirection {
   INBOUND
   OUTBOUND
+}
+
+enum ScheduledStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model Contact {
+  id          String    @id @default(uuid())
+  fullName    String?
+  email       String?
+  phoneNumber String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model EmailLog {
+  id             String   @id @default(uuid())
+  recipientEmail String
+  subject        String
+  content        String
+  provider       String   // "AWS_SES" or "SENDGRID"
+  status         String   // "SENT" or "FAILED"
+  messageId      String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
 }

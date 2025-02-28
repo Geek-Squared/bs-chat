@@ -3,6 +3,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TwilioService } from '../twilio/twilio.service';
 import { ChatFlowService } from '../chat-flow/chat-flow.service';
 import { MessageDirection, MessageStatus } from '@prisma/client';
+import {
+  ScheduleMessageDto,
+  BulkScheduleMessageDto,
+  BulkSendMessageDto,
+} from './dto/schedule-message.dto';
+import { ScheduledMessageService } from '../scheduled-message/scheduled-message.service';
+import { ContactService } from '../contact/contact.service';
 
 @Injectable()
 export class WhatsAppMessageService {
@@ -12,13 +19,19 @@ export class WhatsAppMessageService {
     private prisma: PrismaService,
     private twilioService: TwilioService,
     private chatFlowService: ChatFlowService,
+    private scheduledMessageService: ScheduledMessageService,
+    private contactService: ContactService,
   ) {}
 
-  
-  
   async processIncomingMessage(phoneNumber: string, message: string) {
     try {
       this.logger.log(`Processing message from ${phoneNumber}: ${message}`);
+
+      // Check if contact exists, if not create one
+      let contact = await this.contactService.findByPhoneNumber(phoneNumber);
+      if (!contact) {
+        contact = await this.contactService.create({ phoneNumber });
+      }
 
       // Check for ongoing chat
       const ongoingChat = await this.prisma.ongoingChat.findUnique({
@@ -144,9 +157,14 @@ export class WhatsAppMessageService {
       const firstQuestion = chatFlow.questions[0];
 
       // Update existing ongoing chat instead of creating new
-      await this.prisma.ongoingChat.update({
+      await this.prisma.ongoingChat.upsert({
         where: { phoneNumber },
-        data: {
+        update: {
+          chatFlowId,
+          currentQuestionId: firstQuestion.id,
+        },
+        create: {
+          phoneNumber,
           chatFlowId,
           currentQuestionId: firstQuestion.id,
         },
@@ -239,5 +257,69 @@ export class WhatsAppMessageService {
         status: MessageStatus.SENT,
       },
     });
+  }
+
+  async scheduleMessage(dto: ScheduleMessageDto) {
+    return this.scheduledMessageService.scheduleMessage(dto);
+  }
+
+  async scheduleBulkMessages(dto: BulkScheduleMessageDto) {
+    return this.scheduledMessageService.bulkScheduleMessages(dto);
+  }
+ 
+  async sendBulkMessages(dto: BulkSendMessageDto) {
+    const results = [];
+    
+    for (const message of dto.messages) {
+      try {
+        // Send the message using TwilioService
+        await this.twilioService.sendWhatsAppMessage(
+          message.phoneNumber,
+          message.templateId,
+          message.parameters || {}
+        );
+        
+        // Log the message in the database
+        const logEntry = await this.prisma.messageLog.create({
+          data: {
+            phoneNumber: message.phoneNumber,
+            message: JSON.stringify(message.parameters),
+            direction: MessageDirection.OUTBOUND,
+            status: MessageStatus.SENT,
+          },
+        });
+        
+        results.push({ 
+          success: true, 
+          id: logEntry.id, 
+          phoneNumber: message.phoneNumber 
+        });
+      } catch (error) {
+        this.logger.error(`Error sending message to ${message.phoneNumber}: ${error.message}`);
+        
+        // Log failed message
+        await this.prisma.messageLog.create({
+          data: {
+            phoneNumber: message.phoneNumber,
+            message: JSON.stringify(message.parameters),
+            direction: MessageDirection.OUTBOUND,
+            status: MessageStatus.FAILED,
+          },
+        });
+        
+        results.push({ 
+          success: false, 
+          phoneNumber: message.phoneNumber, 
+          error: error.message 
+        });
+      }
+    }
+    
+    return {
+      total: dto.messages.length,
+      successful: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      results
+    };
   }
 }
